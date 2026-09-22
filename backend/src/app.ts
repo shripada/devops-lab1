@@ -2,6 +2,8 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { buildNote, sortNotes, ValidationError } from './notes.js';
 import { NoteStore } from './store.js';
 
+// main application factory, used by both the CLI and the tests. The CLI
+// creates the store and passes it in, the tests can pass in a mock store.
 export function createApp(store: NoteStore, corsOrigin = '*') {
   const app = express();
   app.use(express.json());
@@ -26,7 +28,8 @@ export function createApp(store: NoteStore, corsOrigin = '*') {
       res.status(503).json({ status: 'unhealthy' });
     }
   });
-
+  
+  // notes api returns all notes created.
   app.get('/api/notes', async (_req, res, next) => {
     try {
       res.json(sortNotes(await store.all()));

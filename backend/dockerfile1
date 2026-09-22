@@ -1,0 +1,30 @@
+# This stage builds the app which requires
+# dev dependencies such as typescript, tsx etc.
+# the final build wont require any of these dev dependencies, it
+# only requires the built product, which usually sits
+# inside dist folder. So we use a multi-stage build to reduce the final image size.
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# next we will create final image with only run time dependencies for the built
+# javacscript code in previous build stage - 'buil'
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY --from=build /app/dist ./dist
+CMD ["node", "dist/app.js"] 
+
+# never allow the container to run as root user, always create a non-root user and run the app as that user.
+RUN mkdir -p /app/data  && chown -R node:node /app/data
+USER node
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+CMD ["node", "dist/server.js"]
+
