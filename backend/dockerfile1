@@ -10,21 +10,21 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# next we will create final image with only run time dependencies for the built
-# javacscript code in previous build stage - 'buil'
-FROM node:20-alpine
+# Next let us copy the build artifacts to a new image which will be the final image.
+FROM node:20-alpine AS final
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
-CMD ["node", "dist/app.js"] 
 
-# never allow the container to run as root user, always create a non-root user and run the app as that user.
-RUN mkdir -p /app/data  && chown -R node:node /app/data
+# ensure that the user has permission to write to the /app directory
+RUN chown -R node:node /app
 USER node
-EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
-CMD ["node", "dist/server.js"]
+# health check to ensure that the app is running
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# run the app
+CMD ["node", "dist/index.js"]
 
